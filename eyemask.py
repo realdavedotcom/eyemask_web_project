@@ -22,7 +22,7 @@ class EyeMaskerApp:
             raise IOError("Failed to load Haar Cascade XML files.")
 
         # Load emoji image
-        self.emoji = cv2.imread("bom.jpg", cv2.IMREAD_UNCHANGED)
+        self.emoji = cv2.imread("274c.png", cv2.IMREAD_UNCHANGED)
         if self.emoji is None:
             raise IOError("Failed to load emoji image. Check file path.")
 
