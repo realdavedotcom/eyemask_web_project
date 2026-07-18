@@ -2,64 +2,85 @@ import cv2
 
 
 class EyeMaskerApp:
-
     def __init__(self):
-        # Initialize video capture
+        # Open the default webcam
         self.cap = cv2.VideoCapture(0)
 
-        # Load both Face and Eye Haar Cascades
+        if not self.cap.isOpened():
+            raise IOError("Could not open webcam.")
+
+        # Load Haar Cascade classifiers
         self.face_cascade = cv2.CascadeClassifier(
             cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
         )
-        self.eye_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_eye.xml")
+
+        self.eye_cascade = cv2.CascadeClassifier(
+            cv2.data.haarcascades + "haarcascade_eye.xml"
+        )
 
         if self.face_cascade.empty() or self.eye_cascade.empty():
-            raise IOError("Unable to load one or more cascade classifier XML files.")
+            raise IOError("Failed to load Haar Cascade XML files.")
+
+        # Load emoji image
+        self.emoji = cv2.imread("bom.jpg", cv2.IMREAD_UNCHANGED)
+        if self.emoji is None:
+            raise IOError("Failed to load emoji image. Check file path.")
 
     def run(self):
-        print("Eye Masker Started.")
-        print("Press 'q' to Quit")
+        print("Eye Masker Started")
+        print("Press 'Q' to quit.")
 
         while True:
+            # Capture frame
             ret, frame = self.cap.read()
+
             if not ret:
-                print("Failed to grab frame from camera.")
+                print("Failed to read frame from webcam.")
                 break
 
-            # Mirror the frame for a natural feel
+            # Mirror the image
             frame = cv2.flip(frame, 1)
+
+            # Convert to grayscale
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            # 1. First, detect faces
+            # Detect faces
             faces = self.face_cascade.detectMultiScale(
-                gray, scaleFactor=1.1, minNeighbors=5, minSize=(100, 100)
+                gray,
+                scaleFactor=1.1,
+                minNeighbors=5,
+                minSize=(100, 100)
             )
 
-            for x, y, w, h in faces:
-                # Isolate the Regions of Interest (ROI) for the face
-                # This prevents the eye detector from finding "eyes" in the background
-                roi_gray = gray[y : y + h, x : x + w]
-                roi_color = frame[y : y + h, x : x + w]
+            # Process each detected face
+            for (x, y, w, h) in faces:
+                roi_gray = gray[y:y + h, x:x + w]
+                roi_color = frame[y:y + h, x:x + w]
 
-                # 2. Detect eyes within the face region
+                # Detect eyes inside the face
                 eyes = self.eye_cascade.detectMultiScale(
-                    roi_gray, scaleFactor=1.1, minNeighbors=10, minSize=(15, 15)
+                    roi_gray,
+                    scaleFactor=1.1,
+                    minNeighbors=10,
+                    minSize=(15, 15)
                 )
 
-                for ex, ey, ew, eh in eyes:
-                    # Calculate center and radius for the eye circle
-                    eye_center = (ex + ew // 2, ey + eh // 2)
-                    radius = int(max(ew, eh) * 0.6)
+                # Overlay emoji on each detected eye
+                for (ex, ey, ew, eh) in eyes:
+                    # Adjust coordinates to full frame
+                    frame_x = x + ex
+                    frame_y = y + ey
 
-                    # Draw solid purple circle on the color ROI
-                    # BGR Color: Purple is (128, 0, 128) or bright magenta/purple (255, 0, 128)
-                    # thickness = -1 makes the circle completely solid (opaque)
-                    cv2.circle(roi_color, eye_center, radius, (255, 0, 128), thickness=-1)
+                    # Resize emoji to eye size
+                    emoji_resized = cv2.resize(self.emoji, (ew, eh))
+
+                    # Paste emoji on frame
+                    frame[frame_y:frame_y+eh, frame_x:frame_x+ew] = emoji_resized[:, :, :3]
 
             # Display the result
-            cv2.imshow("Opaque Eye Masker", frame)
+            cv2.imshow("Eye Emoji Mask", frame)
 
-            # Check for quit key
+            # Quit when Q is pressed
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
 
